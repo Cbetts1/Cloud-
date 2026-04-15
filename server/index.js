@@ -13,9 +13,13 @@ const PORT = process.env.PORT || 3000;
 // Trust reverse proxy (Railway/Render set X-Forwarded-For)
 app.set('trust proxy', 1);
 
-// CORS — allow any origin so phone/other repos can reach the API
+// CORS — set CORS_ORIGIN=* in .env to allow all origins (needed for remote API access from phone/other repos)
+// Defaults to same-origin only for safety. See README for remote access setup.
+const corsOrigin = process.env.CORS_ORIGIN
+  ? process.env.CORS_ORIGIN.split(',').map((o) => o.trim())
+  : false;
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || '*',
+  origin: corsOrigin,
   methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
@@ -41,9 +45,9 @@ const authLimiter = rateLimit({
 app.use('/api/', apiLimiter);
 app.use('/api/auth', authLimiter);
 
-// API routes
+// API routes (apiLimiter also applied explicitly to file routes for clarity)
 app.use('/api/auth', authRoutes);
-app.use('/api/files', fileRoutes);
+app.use('/api/files', apiLimiter, fileRoutes);
 
 // Health check (useful for hosting platforms)
 app.get('/health', (req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
@@ -52,7 +56,7 @@ app.get('/health', (req, res) => res.json({ status: 'ok', timestamp: new Date().
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
 // SPA fallback — serves index.html for any unknown route
-app.get('*', (req, res) => {
+app.get('*', apiLimiter, (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
 });
 
