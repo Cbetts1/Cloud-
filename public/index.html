@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cloud Storage</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      min-height: 100vh;
+    }
+
+    header {
+      background: #1e293b;
+      padding: 1rem 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid #334155;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    header h1 { font-size: 1.25rem; font-weight: 700; color: #38bdf8; }
+    header span { font-size: 0.875rem; color: #94a3b8; }
+
+    #logout-btn {
+      background: #ef4444;
+      color: #fff;
+      border: none;
+      padding: 0.4rem 0.9rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.875rem;
+    }
+    #logout-btn:hover { background: #dc2626; }
+
+    main { max-width: 800px; margin: 0 auto; padding: 2rem 1rem; }
+
+    .card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 2rem;
+      margin-bottom: 1.5rem;
+    }
+    .card h2 { font-size: 1.1rem; margin-bottom: 1.25rem; color: #cbd5e1; }
+
+    input[type="text"], input[type="password"] {
+      width: 100%;
+      padding: 0.65rem 0.9rem;
+      background: #0f172a;
+      border: 1px solid #475569;
+      border-radius: 8px;
+      color: #e2e8f0;
+      font-size: 0.95rem;
+      margin-bottom: 0.85rem;
+      outline: none;
+    }
+    input:focus { border-color: #38bdf8; }
+
+    button.primary {
+      width: 100%;
+      padding: 0.7rem;
+      background: #0ea5e9;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    button.primary:hover { background: #0284c7; }
+
+    .tabs { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; }
+    .tab {
+      padding: 0.5rem 1.25rem;
+      border-radius: 8px;
+      border: 1px solid #334155;
+      background: transparent;
+      color: #94a3b8;
+      cursor: pointer;
+      font-size: 0.9rem;
+    }
+    .tab.active { background: #0ea5e9; color: #fff; border-color: #0ea5e9; }
+
+    .msg { padding: 0.6rem 1rem; border-radius: 8px; font-size: 0.9rem; margin-bottom: 1rem; display: none; }
+    .msg.error { background: #450a0a; color: #fca5a5; border: 1px solid #991b1b; }
+    .msg.success { background: #052e16; color: #86efac; border: 1px solid #166534; }
+    .msg.show { display: block; }
+
+    /* Upload area */
+    #drop-zone {
+      border: 2px dashed #475569;
+      border-radius: 10px;
+      padding: 2.5rem 1rem;
+      text-align: center;
+      cursor: pointer;
+      color: #64748b;
+      transition: border-color 0.15s, background 0.15s;
+      margin-bottom: 1rem;
+    }
+    #drop-zone.drag-over { border-color: #38bdf8; background: #0c1a2e; }
+    #drop-zone p { font-size: 0.95rem; }
+    #drop-zone .hint { font-size: 0.8rem; margin-top: 0.4rem; }
+    #file-input { display: none; }
+
+    #upload-progress { margin-bottom: 1rem; display: none; }
+    progress { width: 100%; height: 8px; border-radius: 4px; }
+
+    /* File list */
+    #file-list { list-style: none; }
+    #file-list li {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.85rem 0.5rem;
+      border-bottom: 1px solid #1e293b;
+    }
+    #file-list li:last-child { border-bottom: none; }
+
+    .file-icon { font-size: 1.5rem; flex-shrink: 0; }
+    .file-info { flex: 1; min-width: 0; }
+    .file-name { font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .file-meta { font-size: 0.75rem; color: #64748b; margin-top: 0.2rem; }
+
+    .file-actions { display: flex; gap: 0.5rem; flex-shrink: 0; }
+    .btn-icon {
+      padding: 0.35rem 0.75rem;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+    .btn-download { background: #0ea5e9; color: #fff; }
+    .btn-download:hover { background: #0284c7; }
+    .btn-delete { background: #ef4444; color: #fff; }
+    .btn-delete:hover { background: #dc2626; }
+
+    #empty-state { color: #475569; text-align: center; padding: 2.5rem 0; font-size: 0.95rem; }
+
+    /* API info */
+    .api-block {
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 1rem;
+      font-family: 'Courier New', monospace;
+      font-size: 0.82rem;
+      color: #7dd3fc;
+      white-space: pre-wrap;
+      word-break: break-all;
+      margin-bottom: 1rem;
+      overflow-x: auto;
+    }
+    .api-label { font-size: 0.8rem; color: #94a3b8; margin-bottom: 0.4rem; }
+
+    @media (max-width: 480px) {
+      .card { padding: 1.25rem; }
+      .file-actions { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+
+<header id="app-header" style="display:none">
+  <h1>☁️ Cloud Storage</h1>
+  <div style="display:flex;align-items:center;gap:1rem">
+    <span id="header-user"></span>
+    <button id="logout-btn">Logout</button>
+  </div>
+</header>
+
+<main>
+  <!-- Auth section -->
+  <div id="auth-section">
+    <div class="card" style="max-width:420px;margin:4rem auto">
+      <h2 id="auth-title">Sign in to Cloud Storage</h2>
+      <div class="tabs" style="margin-top:1rem">
+        <button class="tab active" id="tab-login" onclick="switchTab('login')">Login</button>
+        <button class="tab" id="tab-register" onclick="switchTab('register')">Register</button>
+      </div>
+      <div class="msg" id="auth-msg"></div>
+      <input type="text" id="auth-username" placeholder="Username" autocomplete="username" />
+      <input type="password" id="auth-password" placeholder="Password" autocomplete="current-password" />
+      <button class="primary" id="auth-submit-btn" onclick="submitAuth()">Login</button>
+    </div>
+  </div>
+
+  <!-- App section -->
+  <div id="app-section" style="display:none">
+    <!-- Upload -->
+    <div class="card">
+      <h2>Upload Files</h2>
+      <div class="msg" id="upload-msg"></div>
+      <div id="drop-zone" onclick="document.getElementById('file-input').click()"
+           ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)">
+        <p>📂 Click or drag &amp; drop files here</p>
+        <p class="hint">Max 100 MB per upload</p>
+      </div>
+      <input type="file" id="file-input" multiple onchange="uploadFiles(this.files)" />
+      <div id="upload-progress"><progress id="upload-bar" value="0" max="100"></progress></div>
+    </div>
+
+    <!-- File list -->
+    <div class="card">
+      <h2>Your Files <span id="file-count" style="color:#64748b;font-weight:400;font-size:0.9rem"></span></h2>
+      <div class="msg" id="files-msg"></div>
+      <div id="empty-state" style="display:none">No files yet. Upload something!</div>
+      <ul id="file-list"></ul>
+    </div>
+
+    <!-- API access info -->
+    <div class="card">
+      <h2>Remote API Access</h2>
+      <p style="color:#94a3b8;font-size:0.88rem;margin-bottom:1rem">
+        Use the REST API to access your files from any app, repo, or phone.
+        Copy your token below and include it in the <code>Authorization</code> header.
+      </p>
+      <div class="api-label">Your JWT Token (keep secret!)</div>
+      <div class="api-block" id="token-display" style="cursor:pointer" title="Click to copy" onclick="copyToken()"></div>
+      <div class="api-label">Example — list files</div>
+      <div class="api-block" id="curl-example"></div>
+    </div>
+  </div>
+</main>
+
+<script>
+  const BASE = window.location.origin;
+  let token = localStorage.getItem('cloud_token') || '';
+  let currentTab = 'login';
+
+  function switchTab(tab) {
+    currentTab = tab;
+    document.getElementById('auth-title').textContent = tab === 'login' ? 'Sign in to Cloud Storage' : 'Create an account';
+    document.getElementById('auth-submit-btn').textContent = tab === 'login' ? 'Login' : 'Register';
+    document.getElementById('tab-login').classList.toggle('active', tab === 'login');
+    document.getElementById('tab-register').classList.toggle('active', tab === 'register');
+    hideMsg('auth-msg');
+  }
+
+  function showMsg(id, text, type) {
+    const el = document.getElementById(id);
+    el.textContent = text;
+    el.className = `msg ${type} show`;
+  }
+  function hideMsg(id) {
+    document.getElementById(id).className = 'msg';
+  }
+
+  async function submitAuth() {
+    const username = document.getElementById('auth-username').value.trim();
+    const password = document.getElementById('auth-password').value;
+    if (!username || !password) return showMsg('auth-msg', 'Please enter username and password.', 'error');
+    const url = currentTab === 'login' ? `${BASE}/api/auth/login` : `${BASE}/api/auth/register`;
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+      });
+      const data = await res.json();
+      if (!res.ok) return showMsg('auth-msg', data.error || 'Error', 'error');
+      if (currentTab === 'register') {
+        showMsg('auth-msg', 'Account created! You can now login.', 'success');
+        switchTab('login');
+        return;
+      }
+      token = data.token;
+      localStorage.setItem('cloud_token', token);
+      localStorage.setItem('cloud_user', data.username);
+      showApp(data.username);
+    } catch {
+      showMsg('auth-msg', 'Network error. Is the server running?', 'error');
+    }
+  }
+
+  function showApp(username) {
+    document.getElementById('auth-section').style.display = 'none';
+    document.getElementById('app-section').style.display = 'block';
+    document.getElementById('app-header').style.display = 'flex';
+    document.getElementById('header-user').textContent = `👤 ${username}`;
+    document.getElementById('token-display').textContent = token;
+    document.getElementById('curl-example').textContent =
+      `curl -H "Authorization: Bearer ${token}" \\\n  ${BASE}/api/files`;
+    loadFiles();
+  }
+
+  document.getElementById('logout-btn').addEventListener('click', () => {
+    localStorage.removeItem('cloud_token');
+    localStorage.removeItem('cloud_user');
+    token = '';
+    document.getElementById('auth-section').style.display = 'block';
+    document.getElementById('app-section').style.display = 'none';
+    document.getElementById('app-header').style.display = 'none';
+    document.getElementById('auth-username').value = '';
+    document.getElementById('auth-password').value = '';
+  });
+
+  async function loadFiles() {
+    try {
+      const res = await fetch(`${BASE}/api/files`, { headers: { Authorization: `Bearer ${token}` } });
+      if (res.status === 401) return logout();
+      const data = await res.json();
+      renderFiles(data.files || []);
+    } catch {
+      showMsg('files-msg', 'Failed to load files.', 'error');
+    }
+  }
+
+  function renderFiles(files) {
+    const list = document.getElementById('file-list');
+    const empty = document.getElementById('empty-state');
+    document.getElementById('file-count').textContent = files.length ? `(${files.length})` : '';
+    list.innerHTML = '';
+    if (files.length === 0) { empty.style.display = 'block'; return; }
+    empty.style.display = 'none';
+    files.forEach((f) => {
+      const li = document.createElement('li');
+      li.innerHTML = `
+        <span class="file-icon">${fileIcon(f.mimeType)}</span>
+        <div class="file-info">
+          <div class="file-name" title="${escHtml(f.name)}">${escHtml(f.name)}</div>
+          <div class="file-meta">${formatSize(f.size)} · ${new Date(f.uploadedAt).toLocaleString()}</div>
+        </div>
+        <div class="file-actions">
+          <button class="btn-icon btn-download" onclick="downloadFile('${f.id}','${escHtml(f.name)}')">⬇ Download</button>
+          <button class="btn-icon btn-delete" onclick="deleteFile('${f.id}', this)">🗑 Delete</button>
+        </div>`;
+      list.appendChild(li);
+    });
+  }
+
+  function fileIcon(mime) {
+    if (!mime) return '📄';
+    if (mime.startsWith('image/')) return '🖼️';
+    if (mime.startsWith('video/')) return '🎬';
+    if (mime.startsWith('audio/')) return '🎵';
+    if (mime.includes('pdf')) return '📕';
+    if (mime.includes('zip') || mime.includes('tar') || mime.includes('gzip')) return '🗜️';
+    if (mime.includes('text')) return '📝';
+    return '📄';
+  }
+
+  function formatSize(bytes) {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  function escHtml(str) {
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  async function uploadFiles(files) {
+    if (!files || files.length === 0) return;
+    hideMsg('upload-msg');
+    const form = new FormData();
+    for (const f of files) form.append('files', f);
+    const progressWrap = document.getElementById('upload-progress');
+    const bar = document.getElementById('upload-bar');
+    progressWrap.style.display = 'block';
+    bar.value = 0;
+    try {
+      await new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', `${BASE}/api/files/upload`);
+        xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+        xhr.upload.onprogress = (e) => { if (e.lengthComputable) bar.value = Math.round((e.loaded / e.total) * 100); };
+        xhr.onload = () => { bar.value = 100; resolve(JSON.parse(xhr.responseText)); };
+        xhr.onerror = reject;
+        xhr.send(form);
+      });
+      showMsg('upload-msg', `${files.length} file(s) uploaded successfully!`, 'success');
+      loadFiles();
+    } catch {
+      showMsg('upload-msg', 'Upload failed. Please try again.', 'error');
+    } finally {
+      progressWrap.style.display = 'none';
+      document.getElementById('file-input').value = '';
+    }
+  }
+
+  async function downloadFile(id, name) {
+    const res = await fetch(`${BASE}/api/files/${id}/download`, { headers: { Authorization: `Bearer ${token}` } });
+    if (!res.ok) return showMsg('files-msg', 'Download failed.', 'error');
+    const blob = await res.blob();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  async function deleteFile(id, btn) {
+    if (!confirm('Delete this file? This cannot be undone.')) return;
+    btn.disabled = true;
+    const res = await fetch(`${BASE}/api/files/${id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (res.ok) { loadFiles(); }
+    else { showMsg('files-msg', 'Delete failed.', 'error'); btn.disabled = false; }
+  }
+
+  function copyToken() {
+    navigator.clipboard.writeText(token).then(() => {
+      const el = document.getElementById('token-display');
+      const orig = el.title;
+      el.title = 'Copied!';
+      setTimeout(() => { el.title = orig; }, 2000);
+    });
+  }
+
+  function onDragOver(e) { e.preventDefault(); document.getElementById('drop-zone').classList.add('drag-over'); }
+  function onDragLeave() { document.getElementById('drop-zone').classList.remove('drag-over'); }
+  function onDrop(e) {
+    e.preventDefault();
+    document.getElementById('drop-zone').classList.remove('drag-over');
+    uploadFiles(e.dataTransfer.files);
+  }
+
+  // Auto-login if token saved
+  if (token) {
+    const user = localStorage.getItem('cloud_user') || 'User';
+    showApp(user);
+  }
+
+  // Allow Enter key in auth form
+  ['auth-username','auth-password'].forEach(id => {
+    document.getElementById(id).addEventListener('keydown', e => { if (e.key === 'Enter') submitAuth(); });
+  });
+</script>
+</body>
+</html>

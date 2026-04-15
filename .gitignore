@@ -1,0 +1,11 @@
+# Dependencies
+node_modules/
+
+# Environment — never commit real secrets
+.env
+
+# Uploaded files
+storage/
+
+# Local database
+data/
